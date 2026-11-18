@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 
+from cli_options.config import write_config
 from run_helpers import config
 from run_helpers.gcm_setup import prepare_gcm_setup, run_gcm_setup
 from run_helpers.template import PipelineStep
@@ -22,6 +23,7 @@ class SetupDirectory(PipelineStep):
         setup_script_location = None
         if config.MACHINE == "NONHPC":
             setup_script_location = os.path.abspath(runner.args.restart_setup_scripts_dir or input("[GEOS PYTHON WRAPPER] Enter the path to TBC scripts directory:"))
+            runner.args.restart_setup_scripts_dir = setup_script_location
 
         if os.path.isdir(runner.exp_dir):
             shutil.rmtree(runner.exp_dir)
@@ -51,6 +53,11 @@ class SetupDirectory(PipelineStep):
                 raise SystemExit(
                     f"\n[GEOS PYTHON WRAPPER] makeoneday.bash failed (exit {e.returncode}): {last_line}\n" f"[GEOS PYTHON WRAPPER]   cwd: {runner.args.geos_dir}"
                 ) from None
+        write_config(
+            pathlib.Path(runner.exp_dir) / "pypipe.yaml",
+            runner.args.mode,
+            vars(runner.args),
+        )
         return runner
 
     def validate_outputs(self, runner):

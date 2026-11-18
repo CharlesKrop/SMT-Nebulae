@@ -86,6 +86,12 @@ Run it with `pypipe_geos_exp --config emip.yaml` or `pypipe_geos_exp EMIP --conf
 
 YAML files are flat mappings of option names to values. CLI options override YAML values. Quote choice values that look numeric, such as `start_year`. See [`cli_options/config.schema.yaml`](cli_options/config.schema.yaml) and per-mode `--help` for the supported settings.
 
+### Saved experiment configuration
+
+GCM and EMIP setup automatically writes `pypipe.yaml` inside the generated experiment directory. It contains every mode-specific pypipe option, including unspecified defaults, CLI overrides, the machine profile, computed job segments, and any interactively supplied restart-script directory. Optional values are retained as explicit `null` values and disabled flags as `false`, rather than omitted.
+
+Reuse it with `pypipe_geos_exp --config /path/to/experiment/pypipe.yaml`. Saved values take precedence over future pypipe defaults. Copy the file elsewhere or override `top_exp_dir` if the original experiment must be preserved: setup deletes an existing experiment directory with the same generated name. Relative paths still refer to the current working directory. Reproduction also requires compatible GEOS software and external data; defaults delegated to GEOS itself are not captured by this pypipe configuration.
+
 ## Before running
 
 - `--execute_on none` still creates and modifies experiment files and runs external setup scripts.

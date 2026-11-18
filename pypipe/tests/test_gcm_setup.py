@@ -28,6 +28,7 @@ class GCMSetupTests(unittest.TestCase):
         self.log = self.root / "answers"
         self.runner = SimpleNamespace(
             args=SimpleNamespace(
+                mode="GCM",
                 geos_dir=str(self.bin.parent),
                 ocean="o2",
                 data_atmo=False,

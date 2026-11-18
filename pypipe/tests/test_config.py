@@ -1,9 +1,11 @@
 import unittest
+from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import yaml
 from click.testing import CliRunner
 from schema import SchemaError
 
@@ -184,6 +186,7 @@ link: false
             script.touch(mode=0o755)
             runner = SimpleNamespace(
                 args=SimpleNamespace(
+                    mode="GCM",
                     restart_setup_scripts_dir=setup_scripts,
                     geos_dir=str(Path(directory)),
                     microphysics="GFDL1M",
@@ -224,6 +227,140 @@ link: false
         )
         self.assertEqual(run.call_args_list[0].kwargs["cwd"], experiment_dir)
         prompt.assert_not_called()
+
+    def test_saved_config_contains_all_options_and_survives_default_changes(self):
+        for mode, mode_arguments in (
+            ("GCM", ["--duration", "1"]),
+            ("EMIP", ["--start_year", "2005", "--season", "DJF"]),
+        ):
+            for use_config in (False, True):
+                with (
+                    self.subTest(mode=mode, use_config=use_config),
+                    TemporaryDirectory() as directory,
+                ):
+                    config_path = Path(directory) / "input.yaml"
+                    config_path.write_text("machine: NONHPC\nnx: 4\nlink: true\n", encoding="utf-8")
+                    arguments = [mode]
+                    if use_config:
+                        arguments += ["--config", str(config_path)]
+                    arguments += [
+                        "--machine",
+                        "DISCOVER",
+                        "--top_exp_dir",
+                        directory,
+                        "--horz",
+                        "24",
+                        "--vert",
+                        "72",
+                        "--nx",
+                        "2",
+                        "--ny",
+                        "6",
+                        "--execute_on",
+                        "none",
+                        "--no_link",
+                        *mode_arguments,
+                    ]
+                    if use_config:
+                        arguments += ["--pymodules", "uw,gfdl1m"]
+
+                    runner_class = getattr(run_GEOS, f"{mode}Runner")
+                    with (
+                        patch.object(
+                            runner_class,
+                            "run",
+                            lambda runner: SetupDirectory().operate(runner),
+                        ),
+                        patch.object(SetupDirectory, "validate_inputs"),
+                        patch("run_helpers.setup.run_gcm_setup"),
+                        patch("run_helpers.setup.subprocess.run") as subprocess_run,
+                    ):
+                        result = self.runner.invoke(run_GEOS.run_GEOS, arguments)
+                        self.assertEqual(result.exit_code, 0, f"{result.output}\n{result.exception}")
+                        saved_path = next(Path(directory).glob("*/pypipe.yaml"))
+                        saved = yaml.safe_load(saved_path.read_text(encoding="utf-8"))
+                        self.assertEqual(set(saved), CONFIG_OPTIONS[mode.lower()] | {"mode"})
+                        self.assertEqual(saved["machine"], "DISCOVER")
+                        self.assertEqual(saved["nx"], 2)
+                        self.assertFalse(saved["link"])
+                        self.assertTrue(saved["hydro"])
+                        self.assertIsNone(saved["account"])
+                        self.assertIsNone(saved["num_segment"])
+                        self.assertEqual(saved["land_surf"], "1")
+                        self.assertEqual(saved["pymodules"], ["uw", "gfdl1m"] if use_config else [])
+                        self.assertIsInstance(saved["job_segment"], str)
+                        COMMAND_VALIDATORS[mode.lower()].validate({name: value for name, value in saved.items() if name != "mode"})
+
+                        command = run_GEOS.run_GEOS.get_command(None, mode)
+                        changed_defaults = {
+                            "machine": "NONHPC",
+                            "land_surf": "2",
+                            "microphysics": "BACM1M",
+                            "hydro": False,
+                            "link": True,
+                            "backend": "changed-backend",
+                            "pymodules": ("fv3",),
+                            "num_segment": 99,
+                            "restart_setup_scripts_dir": "/changed/scripts",
+                        }
+                        with ExitStack() as stack:
+                            for parameter in command.params:
+                                if parameter.name in changed_defaults:
+                                    stack.enter_context(
+                                        patch.object(
+                                            parameter,
+                                            "default",
+                                            changed_defaults[parameter.name],
+                                        )
+                                    )
+                            replay = self.runner.invoke(run_GEOS.run_GEOS, ["--config", str(saved_path)])
+                        self.assertEqual(replay.exit_code, 0, f"{replay.output}\n{replay.exception}")
+                        self.assertEqual(
+                            yaml.safe_load(saved_path.read_text(encoding="utf-8")),
+                            saved,
+                        )
+                        subprocess_run.assert_not_called()
+
+    def test_saved_config_captures_prompted_restart_directory(self):
+        with TemporaryDirectory() as directory:
+            with (
+                patch.object(
+                    run_GEOS.GCMRunner,
+                    "run",
+                    lambda runner: SetupDirectory().operate(runner),
+                ),
+                patch.object(SetupDirectory, "validate_inputs"),
+                patch("run_helpers.setup.run_gcm_setup"),
+                patch("run_helpers.setup.subprocess.run"),
+                patch("builtins.input", return_value=directory) as prompt,
+            ):
+                result = self.runner.invoke(
+                    run_GEOS.run_GEOS,
+                    [
+                        "GCM",
+                        "--machine",
+                        "NONHPC",
+                        "--top_exp_dir",
+                        directory,
+                        "--horz",
+                        "24",
+                        "--vert",
+                        "72",
+                        "--nx",
+                        "2",
+                        "--ny",
+                        "6",
+                        "--duration",
+                        "1",
+                        "--execute_on",
+                        "none",
+                    ],
+                )
+            self.assertEqual(result.exit_code, 0, f"{result.output}\n{result.exception}")
+            saved_path = next(Path(directory).glob("*/pypipe.yaml"))
+            saved = yaml.safe_load(saved_path.read_text(encoding="utf-8"))
+            self.assertEqual(saved["restart_setup_scripts_dir"], directory)
+            prompt.assert_called_once()
 
     def test_help_and_registry_cover_each_command(self):
         for command_name in ("GCM", "EMIP", "SCM"):
