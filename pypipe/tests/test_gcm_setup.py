@@ -64,7 +64,10 @@ class GCMSetupTests(unittest.TestCase):
         if fail:
             lines.append("exit 9")
         else:
-            lines.append('printf "&fv_core_nml\\n/\\n" > ' + shlex.quote(str(Path(self.runner.exp_dir) / "fvcore_layout.rc")))
+            lines.append(
+                'printf "&fv_core_nml\\n/\\n" > '
+                + shlex.quote(str(Path(self.runner.exp_dir) / "fvcore_layout.rc"))
+            )
         script.write_text("\n".join(lines) + "\n")
         script.chmod(0o755)
 
@@ -203,7 +206,9 @@ class GCMSetupTests(unittest.TestCase):
         makeoneday.assert_not_called()
         prompt.assert_not_called()
 
-    @unittest.skipUnless(os.environ.get("PYPIPE_TEST_GEOS_DIR"), "No GEOS installation specified")
+    @unittest.skipUnless(
+        os.environ.get("PYPIPE_TEST_GEOS_DIR"), "No GEOS installation specified"
+    )
     def test_real_geos_installation(self):
         self.runner.args.geos_dir = os.environ["PYPIPE_TEST_GEOS_DIR"]
         self.runner.args.oserver = False
@@ -225,7 +230,9 @@ class GCMSetupTests(unittest.TestCase):
                 self.assertTrue((exp / "gcm_run.j").is_file())
                 self.assertTrue((exp / "GEOSgcm.x").is_symlink())
                 value = ".true." if hydro else ".false."
-                self.assertIn(f"hydrostatic = {value}", (exp / "fvcore_layout.rc").read_text())
+                self.assertIn(
+                    f"hydrostatic = {value}", (exp / "fvcore_layout.rc").read_text()
+                )
 
 
 if __name__ == "__main__":

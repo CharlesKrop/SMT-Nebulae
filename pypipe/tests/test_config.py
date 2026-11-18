@@ -105,7 +105,9 @@ link: false
         runner_class.return_value.run.assert_called_once_with()
 
     def test_config_mode_must_match_explicit_subcommand(self):
-        result, _ = self.invoke_gcm("mode: EMIP\nhorz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\n")
+        result, _ = self.invoke_gcm(
+            "mode: EMIP\nhorz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\n"
+        )
 
         self.assertEqual(result.exit_code, 2)
         self.assertIn("does not match the selected GCM command", result.output)
@@ -114,7 +116,9 @@ link: false
         with TemporaryDirectory() as directory:
             config_path = Path(directory) / "settings.yaml"
             config_path.write_text("execute_on: none\n", encoding="utf-8")
-            result = self.runner.invoke(run_GEOS.run_GEOS, ["--config", str(config_path)])
+            result = self.runner.invoke(
+                run_GEOS.run_GEOS, ["--config", str(config_path)]
+            )
 
         self.assertEqual(result.exit_code, 2)
         self.assertIn("top-level mode: GCM, EMIP, or SCM is required", result.output)
@@ -138,7 +142,9 @@ link: false
         self.assertIn("document must be a mapping", result.output)
 
     def test_invalid_typed_value_is_reported(self):
-        result, _ = self.invoke_gcm("horz: 180\nvert: 72\nnx: many\nny: 12\nduration: 1\n")
+        result, _ = self.invoke_gcm(
+            "horz: 180\nvert: 72\nnx: many\nny: 12\nduration: 1\n"
+        )
 
         self.assertEqual(result.exit_code, 2)
         self.assertIn("invalid gcm config", result.output)
@@ -150,13 +156,17 @@ link: false
             COMMAND_VALIDATORS["gcm"].validate({"nx": "20"})
 
     def test_machine_config_sets_global_and_is_not_passed_to_runner(self):
-        result, runner_class = self.invoke_gcm("machine: DISCOVER\nhorz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\nexecute_on: none\n")
+        result, runner_class = self.invoke_gcm(
+            "machine: DISCOVER\nhorz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\nexecute_on: none\n"
+        )
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(runtime_config.MACHINE, "DISCOVER")
         self.assertNotIn("machine", runner_class.call_args.kwargs)
 
-        self.invoke_gcm("horz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\nexecute_on: none\n")
+        self.invoke_gcm(
+            "horz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\nexecute_on: none\n"
+        )
         self.assertEqual(runtime_config.MACHINE, DEFAULT_MACHINE)
 
     def test_machine_cli_option_overrides_config(self):
@@ -170,7 +180,9 @@ link: false
         self.assertEqual(runtime_config.MACHINE, "DISCOVER")
 
     def test_restart_tbc_is_passed_from_config_to_runner(self):
-        result, runner_class = self.invoke_gcm("restart_setup_scripts_dir: /path/to/TBC/scripts\nhorz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\nexecute_on: none\n")
+        result, runner_class = self.invoke_gcm(
+            "restart_setup_scripts_dir: /path/to/TBC/scripts\nhorz: 180\nvert: 72\nnx: 10\nny: 12\nduration: 1\nexecute_on: none\n"
+        )
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(
@@ -241,7 +253,9 @@ link: false
                     TemporaryDirectory() as directory,
                 ):
                     config_path = Path(directory) / "input.yaml"
-                    config_path.write_text("machine: NONHPC\nnx: 4\nlink: true\n", encoding="utf-8")
+                    config_path.write_text(
+                        "machine: NONHPC\nnx: 4\nlink: true\n", encoding="utf-8"
+                    )
                     arguments = [mode]
                     if use_config:
                         arguments += ["--config", str(config_path)]
@@ -278,10 +292,14 @@ link: false
                         patch("run_helpers.setup.subprocess.run") as subprocess_run,
                     ):
                         result = self.runner.invoke(run_GEOS.run_GEOS, arguments)
-                        self.assertEqual(result.exit_code, 0, f"{result.output}\n{result.exception}")
+                        self.assertEqual(
+                            result.exit_code, 0, f"{result.output}\n{result.exception}"
+                        )
                         saved_path = next(Path(directory).glob("*/pypipe.yaml"))
                         saved = yaml.safe_load(saved_path.read_text(encoding="utf-8"))
-                        self.assertEqual(set(saved), CONFIG_OPTIONS[mode.lower()] | {"mode"})
+                        self.assertEqual(
+                            set(saved), CONFIG_OPTIONS[mode.lower()] | {"mode"}
+                        )
                         self.assertEqual(saved["machine"], "DISCOVER")
                         self.assertEqual(saved["nx"], 2)
                         self.assertFalse(saved["link"])
@@ -291,9 +309,17 @@ link: false
                         self.assertIsNone(saved["account"])
                         self.assertIsNone(saved["num_segment"])
                         self.assertEqual(saved["land_surf"], "1")
-                        self.assertEqual(saved["pymodules"], ["uw", "gfdl1m"] if use_config else [])
+                        self.assertEqual(
+                            saved["pymodules"], ["uw", "gfdl1m"] if use_config else []
+                        )
                         self.assertIsInstance(saved["job_segment"], str)
-                        COMMAND_VALIDATORS[mode.lower()].validate({name: value for name, value in saved.items() if name != "mode"})
+                        COMMAND_VALIDATORS[mode.lower()].validate(
+                            {
+                                name: value
+                                for name, value in saved.items()
+                                if name != "mode"
+                            }
+                        )
 
                         command = run_GEOS.run_GEOS.get_command(None, mode)
                         changed_defaults = {
@@ -317,8 +343,12 @@ link: false
                                             changed_defaults[parameter.name],
                                         )
                                     )
-                            replay = self.runner.invoke(run_GEOS.run_GEOS, ["--config", str(saved_path)])
-                        self.assertEqual(replay.exit_code, 0, f"{replay.output}\n{replay.exception}")
+                            replay = self.runner.invoke(
+                                run_GEOS.run_GEOS, ["--config", str(saved_path)]
+                            )
+                        self.assertEqual(
+                            replay.exit_code, 0, f"{replay.output}\n{replay.exception}"
+                        )
                         self.assertEqual(
                             yaml.safe_load(saved_path.read_text(encoding="utf-8")),
                             saved,
@@ -360,7 +390,9 @@ link: false
                         "none",
                     ],
                 )
-            self.assertEqual(result.exit_code, 0, f"{result.output}\n{result.exception}")
+            self.assertEqual(
+                result.exit_code, 0, f"{result.output}\n{result.exception}"
+            )
             saved_path = next(Path(directory).glob("*/pypipe.yaml"))
             saved = yaml.safe_load(saved_path.read_text(encoding="utf-8"))
             self.assertEqual(saved["restart_setup_scripts_dir"], directory)
@@ -371,7 +403,11 @@ link: false
             with self.subTest(command=command_name):
                 result = self.runner.invoke(run_GEOS.run_GEOS, [command_name, "--help"])
                 command = run_GEOS.run_GEOS.get_command(None, command_name)
-                parameter_names = {parameter.name for parameter in command.params if parameter.name != "config_path"}
+                parameter_names = {
+                    parameter.name
+                    for parameter in command.params
+                    if parameter.name != "config_path"
+                }
 
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertIn("--config FILE", result.output)

@@ -95,7 +95,9 @@ def prepare_gcm_setup(runner):
         or exp_name in Path(exp_dir).parts[:-1]
         or any(re.search(r"[\s*?\[\]{}'\"\\`$!;|&<>]", p) for p in (exp_dir, geos_dir))
     ):
-        raise ValueError("Experiment and GEOS paths must be unambiguous and safe for tcsh.")
+        raise ValueError(
+            "Experiment and GEOS paths must be unambiguous and safe for tcsh."
+        )
 
     microphysics = ""
     if args.microphysics is not None:
@@ -133,7 +135,10 @@ def prepare_gcm_setup(runner):
         "build": geos_dir,
         "group": str(args.account) if args.account is not None else "",
     }
-    if any("\n" in value or "\r" in value or "\x00" in value for value in responses.values()):
+    if any(
+        "\n" in value or "\r" in value or "\x00" in value
+        for value in responses.values()
+    ):
         raise ValueError("gcm_setup responses must each fit on a single line.")
     return responses
 
@@ -215,18 +220,31 @@ def run_gcm_setup(runner, prompt_timeout=30, completion_timeout=180):
             child.logfile_read = transcript
             while True:
                 timeout = completion_timeout if "group" in seen else prompt_timeout
-                index = child.expect([*_PATTERNS, pexpect.EOF, pexpect.TIMEOUT], timeout=timeout)
+                index = child.expect(
+                    [*_PATTERNS, pexpect.EOF, pexpect.TIMEOUT], timeout=timeout
+                )
                 if index == len(_PATTERNS):
                     child.close()
                     missing = required - seen
-                    if child.exitstatus != 0 or child.signalstatus is not None or missing:
-                        raise RuntimeError(f"unexpected EOF (exit={child.exitstatus}, signal={child.signalstatus}, " f"missing prompts={sorted(missing)})")
+                    if (
+                        child.exitstatus != 0
+                        or child.signalstatus is not None
+                        or missing
+                    ):
+                        raise RuntimeError(
+                            f"unexpected EOF (exit={child.exitstatus}, signal={child.signalstatus}, "
+                            f"missing prompts={sorted(missing)})"
+                        )
                     break
                 if index == len(_PATTERNS) + 1:
-                    raise RuntimeError("timed out waiting for a known prompt or completion")
+                    raise RuntimeError(
+                        "timed out waiting for a known prompt or completion"
+                    )
                 key = list(_PROMPTS)[index]
                 if key in seen:
-                    raise RuntimeError(f"repeated prompt {key!r}; the previous answer was rejected")
+                    raise RuntimeError(
+                        f"repeated prompt {key!r}; the previous answer was rejected"
+                    )
                 seen.add(key)
                 last_prompt = key
                 child.sendline(responses[key])
@@ -235,7 +253,10 @@ def run_gcm_setup(runner, prompt_timeout=30, completion_timeout=180):
         except (OSError, pexpect.ExceptionPexpect, RuntimeError) as exc:
             output = re.sub(_ESCAPE, "", transcript.text).strip()
             raise RuntimeError(
-                f"[GEOS PYTHON WRAPPER] gcm_setup failed: {exc}\n" f"script: {script}\ncwd: {cwd}\n" f"last prompt: {last_prompt}\n" f"recent output:\n{output}"
+                f"[GEOS PYTHON WRAPPER] gcm_setup failed: {exc}\n"
+                f"script: {script}\ncwd: {cwd}\n"
+                f"last prompt: {last_prompt}\n"
+                f"recent output:\n{output}"
             ) from exc
         finally:
             if child is not None and not child.closed:

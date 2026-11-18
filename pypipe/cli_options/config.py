@@ -11,7 +11,10 @@ from .click_support import GroupedOption
 SCHEMA_PATH = Path(__file__).with_name("config.schema.yaml")
 CONFIG_SCHEMA = yaml.safe_load(SCHEMA_PATH.read_text(encoding="utf-8"))
 COMMAND_SCHEMAS = CONFIG_SCHEMA["commands"]
-CONFIG_OPTIONS = {command_name: frozenset(command_schema["properties"]) for command_name, command_schema in COMMAND_SCHEMAS.items()}
+CONFIG_OPTIONS = {
+    command_name: frozenset(command_schema["properties"])
+    for command_name, command_schema in COMMAND_SCHEMAS.items()
+}
 DEFAULT_MACHINE = runtime_config.MACHINE
 
 
@@ -33,7 +36,8 @@ def write_config(config_path, mode, values):
     Path(config_path).write_text(
         "# These options were used to generate this experiment.\n"
         "# Some values were taken from pypipe defaults rather than explicitly specified.\n"
-        "# All resolved options are saved so changes to pypipe defaults do not affect reuse.\n" + yaml.safe_dump(config_values, sort_keys=False),
+        "# All resolved options are saved so changes to pypipe defaults do not affect reuse.\n"
+        + yaml.safe_dump(config_values, sort_keys=False),
         encoding="utf-8",
     )
 
@@ -82,7 +86,12 @@ def _property_schema(property_definition):
 
 
 COMMAND_VALIDATORS = {
-    command_name: Schema({Optional(option_name): _property_schema(property_definition) for option_name, property_definition in command_schema["properties"].items()})
+    command_name: Schema(
+        {
+            Optional(option_name): _property_schema(property_definition)
+            for option_name, property_definition in command_schema["properties"].items()
+        }
+    )
     for command_name, command_schema in COMMAND_SCHEMAS.items()
 }
 
@@ -102,11 +111,16 @@ def load_config(ctx, param, config_path):
             param=param,
         )
     allowed_options = CONFIG_OPTIONS[command_name]
-    command_options = {option.name for option in ctx.command.params if option.name != "config_path"}
+    command_options = {
+        option.name for option in ctx.command.params if option.name != "config_path"
+    }
     if allowed_options != command_options:
         missing = sorted(command_options - allowed_options)
         stale = sorted(allowed_options - command_options)
-        raise click.ClickException(f"Config option registry for {command_name} is out of sync " f"(unlisted: {missing}; unknown: {stale})")
+        raise click.ClickException(
+            f"Config option registry for {command_name} is out of sync "
+            f"(unlisted: {missing}; unknown: {stale})"
+        )
 
     unknown_options = sorted(set(config_values) - allowed_options)
     if unknown_options:
@@ -118,12 +132,17 @@ def load_config(ctx, param, config_path):
     try:
         COMMAND_VALIDATORS[command_name].validate(config_values)
     except SchemaError as error:
-        raise click.BadParameter(f"invalid {command_name} config: {error.code}", param=param) from error
+        raise click.BadParameter(
+            f"invalid {command_name} config: {error.code}", param=param
+        ) from error
 
     runtime_config.MACHINE = config_values.get("machine", DEFAULT_MACHINE)
     # Older Click 8 versions treat a literal None as an absent default. A
     # callable preserves an explicit YAML null even if the CLI default changes.
-    defaults = {name: (lambda: None) if value is None else value for name, value in config_values.items()}
+    defaults = {
+        name: (lambda: None) if value is None else value
+        for name, value in config_values.items()
+    }
     ctx.default_map = {**(ctx.default_map or {}), **defaults}
     return config_path
 

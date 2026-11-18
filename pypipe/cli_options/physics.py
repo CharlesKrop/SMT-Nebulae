@@ -26,7 +26,9 @@ def common_config(function):
         cls=GroupedOption,
         help_group=group,
         show_default=True,
-        type=click.Choice(["o1", "o2", "o3", "MOM5", "MOM6", "MIT"], case_sensitive=False),
+        type=click.Choice(
+            ["o1", "o2", "o3", "MOM5", "MOM6", "MIT"], case_sensitive=False
+        ),
         default="o2",
         help="Sets the ocean model",
     )(function)

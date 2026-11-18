@@ -49,7 +49,9 @@ class PatchGCMRUNJTests(unittest.TestCase):
         )
         with patch("run_helpers.patch.config.MACHINE", "DISCOVER"):
             tasks_per_node, _, _ = self.patcher._compute_grid_decomposition(runner, 0)
-            block = self.patcher._build_sbatch_block(runner, "experiment", 1, tasks_per_node, "01:00:00")
+            block = self.patcher._build_sbatch_block(
+                runner, "experiment", 1, tasks_per_node, "01:00:00"
+            )
 
         self.assertEqual(tasks_per_node, 46)
         self.assertNotIn("--constraint=", block)
@@ -61,9 +63,13 @@ class PatchGCMRUNJTests(unittest.TestCase):
             updated = self.patcher._patch_dsl_block(DSL_TEMPLATE, runner, 11.5)
 
         self.assertIn("# ensure Python path is correct", updated)
-        self.assertIn("# PYFV3 cannot currently support KJI backends, so force IJK", updated)
+        self.assertIn(
+            "# PYFV3 cannot currently support KJI backends, so force IJK", updated
+        )
         self.assertIn("setenv GEOS_DSL_BACKEND orch:dace:cpu:KJI", updated)
-        self.assertIn("setenv GT_CACHE_ROOT ${GEOSDIR}/.DSL_CACHE/orch_dace_cpu_KJI", updated)
+        self.assertIn(
+            "setenv GT_CACHE_ROOT ${GEOSDIR}/.DSL_CACHE/orch_dace_cpu_KJI", updated
+        )
         self.assertNotIn("NDSL_LAYOUT", updated)
         self.assertNotIn("@pyFV3", updated)
         self.assertNotIn("I_MPI_OFFLOAD", updated)
