@@ -196,7 +196,7 @@ def run_gcm_setup(runner, prompt_timeout=30, completion_timeout=180):
         argv = ["--link"] if getattr(runner.args, "link", True) else []
         try:
             print(f"[GEOS PYTHON WRAPPER] gcm_setup arguments: {argv!r}", flush=True)
-            print("[GEOS PYTHON WRAPPER] gcm_setup responses:", flush=True)
+            print("[GEOS PYTHON WRAPPER] gcm_setup responses (blank uses default):", flush=True)
             for key, value in responses.items():
                 print(f"  {key}: {value!r}", flush=True)
             child = pexpect.spawn(
