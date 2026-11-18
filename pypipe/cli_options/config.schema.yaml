@@ -20,11 +20,11 @@ shared:
     backend: {type: string, description: DSL backend string.}
   physics: &physics
     account: {type: [string, "null"], description: Scheduler account.}
-    microphysics: {type: string, description: Microphysics scheme.}
+    microphysics: {type: [string, "null"], description: Microphysics scheme; null uses the GEOS gcm_setup default.}
     ocean: {type: string, description: Ocean model.}
-    aerosols: {type: string, description: GOCART aerosol scheme.}
-    oserver: {type: boolean, description: Enable the IO server.}
-    hydro: {type: boolean, description: Enable hydrostatic dynamics.}
+    aerosols: {type: [string, "null"], description: GOCART aerosol scheme; null uses the GEOS gcm_setup default.}
+    oserver: {type: [boolean, "null"], description: Enable the IO server; null uses the GEOS gcm_setup default.}
+    hydro: {type: [boolean, "null"], description: Enable hydrostatic dynamics; null uses the GEOS gcm_setup default.}
     data_atmo: {type: boolean, description: Use a data atmosphere.}
     land_bcs: {type: string, description: Land boundary condition version.}
     land_surf:
@@ -32,7 +32,7 @@ shared:
       enum: ["1", "2"]
       description: Land surface model number.
     heartbeat: {type: [string, integer, "null"], description: Heartbeat interval in seconds.}
-    processor: {type: string, description: Processor target.}
+    processor: {type: [string, "null"], description: Processor target; null uses the GEOS gcm_setup default.}
   grid: &grid
     horz: {type: integer, description: Horizontal resolution.}
     vert: {type: integer, description: Vertical levels.}

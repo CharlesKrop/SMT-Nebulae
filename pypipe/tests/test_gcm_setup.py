@@ -78,6 +78,7 @@ class GCMSetupTests(unittest.TestCase):
             "atmos_vertical",
             "microphysics",
             "oserver",
+            "processor",
             "coupled",
             "data_ocean",
             "land_bcs",
@@ -99,6 +100,7 @@ class GCMSetupTests(unittest.TestCase):
         for entry in (
             "link=--link",
             "microphysics=GFDL_1M",
+            "processor=mil",
             "data_ocean=o2",
             "heartbeat=",
             "group=project",
@@ -112,6 +114,26 @@ class GCMSetupTests(unittest.TestCase):
         )
         self.assertEqual((self.home / ".HOMDIRroot").read_text(), "original\n")
         self.assertFalse((self.home / ".EXPDIRroot").exists())
+
+    def test_unset_physics_options_use_gcm_setup_defaults(self):
+        self.runner.args.microphysics = None
+        self.runner.args.oserver = None
+        self.runner.args.processor = None
+        self.runner.args.hydro = None
+        self.runner.args.aerosols = None
+        prompts = self.common_prompts()
+        prompts.insert(prompts.index("coupled"), "hydro")
+        self.write_setup(prompts)
+
+        run_gcm_setup(self.runner, prompt_timeout=3)
+
+        answers = self.log.read_text()
+        for key in ("microphysics", "oserver", "processor", "hydro", "aerosols"):
+            self.assertIn(f"{key}=\n", answers)
+        self.assertNotIn(
+            "hydrostatic =",
+            (Path(self.runner.exp_dir) / "fvcore_layout.rc").read_text(),
+        )
 
     def test_coupled_data_atmosphere_and_defaults(self):
         self.runner.args.ocean = "MOM5"

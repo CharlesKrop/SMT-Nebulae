@@ -63,6 +63,8 @@ execute_on: none
         self.assertEqual(arguments["pymodules"], ("uw", "gfdl1m"))
         self.assertEqual(arguments["duration_unit"], "days")
         self.assertTrue(arguments["link"])
+        for name in ("microphysics", "aerosols", "oserver", "hydro", "processor"):
+            self.assertIsNone(arguments[name])
         runner_class.return_value.run.assert_called_once_with()
 
     def test_link_can_be_disabled_from_cli(self):
@@ -283,7 +285,9 @@ link: false
                         self.assertEqual(saved["machine"], "DISCOVER")
                         self.assertEqual(saved["nx"], 2)
                         self.assertFalse(saved["link"])
-                        self.assertTrue(saved["hydro"])
+                        self.assertIsNone(saved["hydro"])
+                        self.assertIsNone(saved["microphysics"])
+                        self.assertIsNone(saved["processor"])
                         self.assertIsNone(saved["account"])
                         self.assertIsNone(saved["num_segment"])
                         self.assertEqual(saved["land_surf"], "1")

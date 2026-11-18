@@ -97,11 +97,13 @@ def prepare_gcm_setup(runner):
     ):
         raise ValueError("Experiment and GEOS paths must be unambiguous and safe for tcsh.")
 
-    microphysics = {
-        "GFDL1M": "GFDL_1M",
-        "BACM1M": "BACM_1M",
-        "MGB22M": "MGB2_2M",
-    }.get(str(args.microphysics).upper(), str(args.microphysics))
+    microphysics = ""
+    if args.microphysics is not None:
+        microphysics = {
+            "GFDL1M": "GFDL_1M",
+            "BACM1M": "BACM_1M",
+            "MGB22M": "MGB2_2M",
+        }.get(str(args.microphysics).upper(), str(args.microphysics))
     responses = {
         "expid": exp_name,
         "description": exp_name,
@@ -109,9 +111,9 @@ def prepare_gcm_setup(runner):
         "atmos_horizontal": f"c{str(args.horz).removeprefix('c')}",
         "atmos_vertical": str(args.vert),
         "microphysics": microphysics,
-        "oserver": _boolean(args.oserver),
-        "processor": str(args.processor),
-        "hydro": _boolean(args.hydro),
+        "oserver": _boolean(args.oserver) if args.oserver is not None else "",
+        "processor": str(args.processor) if args.processor is not None else "",
+        "hydro": _boolean(args.hydro) if args.hydro is not None else "",
         "coupled": _boolean(coupled),
         "ocean_model": ocean,
         "ocean_latlon": "",  # MOM5: use the script's 360 x 200 default.
@@ -122,7 +124,7 @@ def prepare_gcm_setup(runner):
         "data_atmos": _boolean(args.data_atmo),
         "land_bcs": str(args.land_bcs),
         "land_model": str(args.land_surf),
-        "aerosols": str(args.aerosols),
+        "aerosols": str(args.aerosols) if args.aerosols is not None else "",
         "emissions": "",
         "heartbeat": str(args.heartbeat) if args.heartbeat is not None else "",
         "history": "",
@@ -159,8 +161,6 @@ def run_gcm_setup(runner, prompt_timeout=30, completion_timeout=180):
         "clone",
         "atmos_horizontal",
         "atmos_vertical",
-        "microphysics",
-        "oserver",
         "coupled",
         "history",
         "home",
@@ -196,7 +196,10 @@ def run_gcm_setup(runner, prompt_timeout=30, completion_timeout=180):
         argv = ["--link"] if getattr(runner.args, "link", True) else []
         try:
             print(f"[GEOS PYTHON WRAPPER] gcm_setup arguments: {argv!r}", flush=True)
-            print("[GEOS PYTHON WRAPPER] gcm_setup responses (blank uses default):", flush=True)
+            print(
+                "[GEOS PYTHON WRAPPER] gcm_setup responses (blank uses default):",
+                flush=True,
+            )
             for key, value in responses.items():
                 print(f"  {key}: {value!r}", flush=True)
             child = pexpect.spawn(
@@ -227,7 +230,7 @@ def run_gcm_setup(runner, prompt_timeout=30, completion_timeout=180):
                 seen.add(key)
                 last_prompt = key
                 child.sendline(responses[key])
-            if "hydro" not in seen:
+            if "hydro" not in seen and runner.args.hydro is not None:
                 _set_hydrostatic(runner.exp_dir, runner.args.hydro)
         except (OSError, pexpect.ExceptionPexpect, RuntimeError) as exc:
             output = re.sub(_ESCAPE, "", transcript.text).strip()
