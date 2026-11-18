@@ -78,8 +78,9 @@ Run it with `pypipe_geos_exp --config emip.yaml` or `pypipe_geos_exp EMIP --conf
 - `machine`: `NONHPC` (default), `DISCOVER`, or `PRISM`. Machine selection is explicit; there is no host auto-detection. PRISM support is in progress and not currently supported.
 - `execute_on`: `compute` submits jobs, `local` runs in the current terminal, and `none` prepares the experiment without running/submitting it. `none` is not a dry run: setup scripts still execute.
 - `link`: Determines whether the GEOSgcm.x executable is explicitly copied from or symlinked to the install directory. defaults to `true`; set `link: false` or pass `--no_link` to copy instead of linking.
-- `restart_setup_scripts_dir`: for NONHPC, points to the Tiny/HugeBC scripts. If omitted, setup prompts for the directory.
-- `geos_dir` is the GEOS installation root (for example, `.../model/install`); pypipe uses its `bin/` subdirectory when running `create_expt.py`. Paths such as `geos_dir`, `top_exp_dir`, and `--config` are relative to the current working directory unless absolute paths are used.
+- `restart_setup_scripts_dir`: for NONHPC, points to the Tiny/HugeBC scripts used by `makeoneday.bash`. If omitted, setup prompts for the directory.
+- `geos_dir` is the GEOS installation root (for example, `.../model/install`); pypipe runs its `bin/gcm_setup` directly. Paths such as `geos_dir`, `top_exp_dir`, and `--config` are relative to the current working directory unless absolute paths are used. The GEOS setup script does not support spaces or shell metacharacters in installation and experiment paths.
+- Setup answers the GEOS prompts using the configured grid, physics, ocean, account, and processor options. Other prompts use defaults: experiment description matches its name, cloning is disabled, both experiment directories are the generated directory, MOM5 uses its default ocean resolution and CICE4, MOM6 uses its default resolution and CICE6, MIT uses CICE4, and emissions and HISTORY use GEOS defaults. If GEOS does not ask about hydrostatic dynamics, pypipe applies `hydro` to the generated FV3 namelist.
 - GCM requires `horz`, `vert`, `nx`, `ny`, and exactly one of `duration` or `end_date`. EMIP requires the grid values, `start_year` (`1985`, `1995`, or `2005`), and `season` (`DJF` or `JJA`); duration defaults to 3 months.
 - `--pymodules` accepts `gfdl1m`, `uw`, `gf2020`, `fv3`, and `shoc` (comma-separated or repeated). Use lowercase names. `shoc` enables `USE_PYTURB_SHOC` in `AGCM.rc`.
 
@@ -89,7 +90,7 @@ YAML files are flat mappings of option names to values. CLI options override YAM
 
 - `--execute_on none` still creates and modifies experiment files and runs external setup scripts.
 - Setup deletes an existing experiment directory if its generated name collides. Back up anything you need first.
-- Confirm GEOS, `create_expt.py`, restart data, Tiny/HugeBC scripts where required, and scheduler commands are configured and available.
+- Confirm GEOS, restart data, Tiny/HugeBC scripts where required, and scheduler commands are configured and available. NONHPC setup still calls `makeoneday.bash`.
 - Review generated files and check job status yourself; successful setup or submission does not confirm the model completed successfully.
 
 SCM currently only prints a setup message. It does not create, patch, or run an experiment.
