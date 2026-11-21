@@ -50,6 +50,7 @@ commands:
       duration: {type: [integer, "null"], description: Run duration; mutually exclusive with end_date.}
       duration_unit: {type: string, description: Duration unit.}
       custom_restart: {type: boolean, description: Use manually supplied restarts.}
+      keep_original_restarts: {type: boolean, description: "Exit after the model run status before restart and other post-processing."}
   emip:
     properties:
       <<: [*machine, *experiment_setup, *dsl, *physics, *grid, *batch_timing]

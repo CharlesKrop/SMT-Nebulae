@@ -49,9 +49,7 @@ class PatchGCMRUNJTests(unittest.TestCase):
         )
         with patch("run_helpers.patch.config.MACHINE", "DISCOVER"):
             tasks_per_node, _, _ = self.patcher._compute_grid_decomposition(runner, 0)
-            block = self.patcher._build_sbatch_block(
-                runner, "experiment", 1, tasks_per_node, "01:00:00"
-            )
+            block = self.patcher._build_sbatch_block(runner, "experiment", 1, tasks_per_node, "01:00:00")
 
         self.assertEqual(tasks_per_node, 46)
         self.assertNotIn("--constraint=", block)
@@ -63,13 +61,9 @@ class PatchGCMRUNJTests(unittest.TestCase):
             updated = self.patcher._patch_dsl_block(DSL_TEMPLATE, runner, 11.5)
 
         self.assertIn("# ensure Python path is correct", updated)
-        self.assertIn(
-            "# PYFV3 cannot currently support KJI backends, so force IJK", updated
-        )
+        self.assertIn("# PYFV3 cannot currently support KJI backends, so force IJK", updated)
         self.assertIn("setenv GEOS_DSL_BACKEND orch:dace:cpu:KJI", updated)
-        self.assertIn(
-            "setenv GT_CACHE_ROOT ${GEOSDIR}/.DSL_CACHE/orch_dace_cpu_KJI", updated
-        )
+        self.assertIn("setenv GT_CACHE_ROOT ${GEOSDIR}/.DSL_CACHE/orch_dace_cpu_KJI", updated)
         self.assertNotIn("NDSL_LAYOUT", updated)
         self.assertNotIn("@pyFV3", updated)
         self.assertNotIn("I_MPI_OFFLOAD", updated)
@@ -100,6 +94,67 @@ class PatchGCMRUNJTests(unittest.TestCase):
 
         self.assertNotIn("I_MPI_OFFLOAD", updated)
         self.assertIn("setenv MPS_ON 1", updated)
+
+    def test_keep_original_restarts_patches_status_line_only_when_enabled(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled), TemporaryDirectory() as directory:
+                script = Path(directory) / "gcm_run.j"
+                script.write_text(
+                    "#!/bin/csh\nsource $GEOSBIN/g5_modules\n" 'setenv RUN_CMD "$GEOSBIN/esma_mpirun -np "\n' "  echo GEOSgcm Run Status: $rc\n" "echo post-processing\n"
+                )
+                (Path(directory) / "AGCM.rc").write_text("IOSERVER_NODES: 0\n")
+                runner = SimpleNamespace(
+                    exp_dir=directory,
+                    backend_arch="CPU",
+                    args=SimpleNamespace(
+                        nx=2,
+                        ny=1,
+                        account=None,
+                        job_time="01:00:00",
+                        pymodules=[],
+                        keep_original_restarts=enabled,
+                    ),
+                )
+                with patch("run_helpers.patch.config.MACHINE", "NONHPC"):
+                    self.patcher.validate_inputs(runner)
+                    self.patcher.operate(runner)
+                    self.patcher.validate_outputs(runner)
+                    self.patcher.operate(runner)
+
+                content = script.read_text()
+                expected = "  echo GEOSgcm Run Status: $rc\n"
+                expected += "  exit\n" if enabled else ""
+                expected += "echo post-processing\n"
+                self.assertIn(expected, content)
+                self.assertEqual(content.count("  exit\n"), int(enabled))
+
+    def test_keep_original_restarts_rejects_missing_or_ambiguous_marker(self):
+        for status_lines in ("", "echo GEOSgcm Run Status: $rc\n" * 2):
+            with (
+                self.subTest(status_lines=status_lines),
+                TemporaryDirectory() as directory,
+            ):
+                script = Path(directory) / "gcm_run.j"
+                original = "#!/bin/csh\n" + status_lines
+                script.write_text(original)
+                (Path(directory) / "AGCM.rc").write_text("IOSERVER_NODES: 0\n")
+                runner = SimpleNamespace(
+                    exp_dir=directory,
+                    backend_arch="CPU",
+                    args=SimpleNamespace(
+                        nx=2,
+                        ny=1,
+                        account=None,
+                        job_time="01:00:00",
+                        pymodules=[],
+                        keep_original_restarts=True,
+                    ),
+                )
+                with patch("run_helpers.patch.config.MACHINE", "NONHPC"):
+                    self.patcher.validate_inputs(runner)
+                    with self.assertRaisesRegex(RuntimeError, "GEOSgcm Run Status"):
+                        self.patcher.operate(runner)
+                self.assertEqual(script.read_text(), original)
 
 
 class PatchAGCMRCTests(unittest.TestCase):
