@@ -49,7 +49,9 @@ class PatchGCMRUNJTests(unittest.TestCase):
         )
         with patch("run_helpers.patch.config.MACHINE", "DISCOVER"):
             tasks_per_node, _, _ = self.patcher._compute_grid_decomposition(runner, 0)
-            block = self.patcher._build_sbatch_block(runner, "experiment", 1, tasks_per_node, "01:00:00")
+            block = self.patcher._build_sbatch_block(
+                runner, "experiment", 1, tasks_per_node, "01:00:00"
+            )
 
         self.assertEqual(tasks_per_node, 46)
         self.assertNotIn("--constraint=", block)
@@ -61,9 +63,14 @@ class PatchGCMRUNJTests(unittest.TestCase):
             updated = self.patcher._patch_dsl_block(DSL_TEMPLATE, runner, 11.5)
 
         self.assertIn("# ensure Python path is correct", updated)
-        self.assertIn("# PYFV3 cannot currently support KJI backends, so force IJK", updated)
+        self.assertIn(
+            "# PYFV3 cannot currently support KJI backends, so force IJK", updated
+        )
         self.assertIn("setenv GEOS_DSL_BACKEND orch:dace:cpu:KJI", updated)
-        self.assertIn("setenv GT_CACHE_ROOT ${GEOSDIR}/.DSL_CACHE/orch_dace_cpu_KJI", updated)
+        self.assertIn("setenv FV3_DACEMODE BuildAndRun", updated)
+        self.assertIn(
+            "setenv GT_CACHE_ROOT ${GEOSDIR}/.DSL_CACHE/orch_dace_cpu_KJI", updated
+        )
         self.assertNotIn("NDSL_LAYOUT", updated)
         self.assertNotIn("@pyFV3", updated)
         self.assertNotIn("I_MPI_OFFLOAD", updated)
@@ -95,12 +102,85 @@ class PatchGCMRUNJTests(unittest.TestCase):
         self.assertNotIn("I_MPI_OFFLOAD", updated)
         self.assertIn("setenv MPS_ON 1", updated)
 
+    def test_dacemode_added_to_dsl_block_when_assignment_missing(self):
+        runner = self.make_runner("orch:dace:cpu:KJI", ["fv3"], "CPU")
+        runner.args.dace_mode = "Run"
+        template = DSL_TEMPLATE.replace("   setenv FV3_DACEMODE BuildAndRun\n", "")
+        with patch("run_helpers.patch.config.MACHINE", "NONHPC"):
+            updated = self.patcher._patch_dsl_block(template, runner, 1)
+        self.assertIn("   setenv FV3_DACEMODE Run\nendif", updated)
+
+    def test_dacemode_in_generated_script(self):
+        for modules in ([], ["fv3"]):
+            for mode in ("Build", "BuildAndRun", "Run"):
+                with (
+                    self.subTest(modules=modules, mode=mode),
+                    TemporaryDirectory() as directory,
+                ):
+                    script = Path(directory) / "gcm_run.j"
+                    script.write_text(
+                        "#!/bin/csh\nsource $GEOSBIN/g5_modules\n"
+                        'setenv RUN_CMD "$GEOSBIN/esma_mpirun -np "\n'
+                        + DSL_TEMPLATE
+                        + "#######################################################################\n"
+                        + "# Create Experiment Sub-Directories\n"
+                    )
+                    (Path(directory) / "AGCM.rc").write_text("IOSERVER_NODES: 0\n")
+                    runner = SimpleNamespace(
+                        exp_dir=directory,
+                        backend_arch="CPU",
+                        args=SimpleNamespace(
+                            nx=2,
+                            ny=1,
+                            account=None,
+                            job_time="01:00:00",
+                            pymodules=modules,
+                            backend="orch:dace:cpu:KJI",
+                            dace_mode=mode,
+                        ),
+                    )
+                    with patch("run_helpers.patch.config.MACHINE", "NONHPC"):
+                        self.patcher.validate_inputs(runner)
+                        self.patcher.operate(runner)
+                        self.patcher.validate_outputs(runner)
+                    self.assertIn(
+                        f"   setenv FV3_DACEMODE {mode}\n", script.read_text()
+                    )
+                    self.assertEqual(script.read_text().count("setenv FV3_DACEMODE"), 1)
+
+    def test_nondefault_dacemode_requires_matching_assignment_without_modules(self):
+        with TemporaryDirectory() as directory:
+            script = Path(directory) / "gcm_run.j"
+            original = "#!/bin/csh\n"
+            script.write_text(original)
+            (Path(directory) / "AGCM.rc").write_text("IOSERVER_NODES: 0\n")
+            runner = SimpleNamespace(
+                exp_dir=directory,
+                backend_arch="CPU",
+                args=SimpleNamespace(
+                    nx=2,
+                    ny=1,
+                    account=None,
+                    job_time="01:00:00",
+                    pymodules=[],
+                    dace_mode="Run",
+                ),
+            )
+            with patch("run_helpers.patch.config.MACHINE", "NONHPC"):
+                self.patcher.validate_inputs(runner)
+                with self.assertRaisesRegex(RuntimeError, "FV3_DACEMODE"):
+                    self.patcher.operate(runner)
+            self.assertEqual(script.read_text(), original)
+
     def test_keep_original_restarts_patches_status_line_only_when_enabled(self):
         for enabled in (False, True):
             with self.subTest(enabled=enabled), TemporaryDirectory() as directory:
                 script = Path(directory) / "gcm_run.j"
                 script.write_text(
-                    "#!/bin/csh\nsource $GEOSBIN/g5_modules\n" 'setenv RUN_CMD "$GEOSBIN/esma_mpirun -np "\n' "  echo GEOSgcm Run Status: $rc\n" "echo post-processing\n"
+                    "#!/bin/csh\nsource $GEOSBIN/g5_modules\n"
+                    'setenv RUN_CMD "$GEOSBIN/esma_mpirun -np "\n'
+                    "  echo GEOSgcm Run Status: $rc\n"
+                    "echo post-processing\n"
                 )
                 (Path(directory) / "AGCM.rc").write_text("IOSERVER_NODES: 0\n")
                 runner = SimpleNamespace(

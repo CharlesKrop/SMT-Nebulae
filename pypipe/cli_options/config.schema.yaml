@@ -18,6 +18,10 @@ shared:
       items: string
       description: DSL modules to enable.
     backend: {type: string, description: DSL backend string.}
+    dace_mode:
+      type: string
+      enum: [Build, BuildAndRun, Run]
+      description: FV3 DaCe execution mode in the generated run script.
   physics: &physics
     account: {type: [string, "null"], description: Scheduler account.}
     microphysics: {type: [string, "null"], description: Microphysics scheme; null uses the GEOS gcm_setup default.}

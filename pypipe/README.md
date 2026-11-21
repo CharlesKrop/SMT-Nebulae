@@ -85,6 +85,7 @@ Run it with `pypipe_geos_exp --config emip.yaml` or `pypipe_geos_exp EMIP --conf
 - Other setup prompts also use GEOS defaults where applicable: the experiment description matches its name, cloning is disabled, both experiment directories use the generated directory, MOM5/MOM6 use their default resolutions (with CICE4/CICE6 respectively), MIT uses CICE4, and emissions and HISTORY use GEOS defaults.
 - GCM requires `horz`, `vert`, `nx`, `ny`, and exactly one of `duration` or `end_date`. EMIP requires the grid values, `start_year` (`1985`, `1995`, or `2005`), and `season` (`DJF` or `JJA`); duration defaults to 3 months.
 - `--pymodules` accepts `gfdl1m`, `uw`, `gf2020`, `fv3`, and `shoc` (comma-separated or repeated). Use lowercase names. `shoc` enables `USE_PYTURB_SHOC` in `AGCM.rc`.
+- `dace_mode` sets `FV3_DACEMODE` in the generated run script. Choose `Build`, `BuildAndRun` (the default), or `Run`; the corresponding CLI option is `--dace_mode`. The setting does not enable a Python module by itself.
 
 YAML files are flat mappings of option names to values. CLI options override YAML values. Quote choice values that look numeric, such as `start_year`. See [`cli_options/config.schema.yaml`](cli_options/config.schema.yaml) and per-mode `--help` for the supported settings.
 
